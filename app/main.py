@@ -25,6 +25,10 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# アプリ起動時にDBを初期化する
+with app.app_context():
+    init_db()
+
 REPORTS_DIR = os.environ.get('REPORTS_DIR', 'reports')
 API_KEY = os.environ.get('API_KEY', '')
 BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
