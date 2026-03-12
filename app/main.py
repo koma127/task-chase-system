@@ -19,6 +19,7 @@ from app.database import (
 from app.line_handler import handle_webhook, send_line_message
 from app.html_generator import generate_report
 from app.google_tasks import complete_google_task, reopen_google_task
+from app.deepdive import set_deepdive_request, get_deepdive_request, clear_deepdive_request
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -260,6 +261,32 @@ def api_reports_upload():
 
     report_url = f'{BASE_URL}/reports/{filename}'
     return jsonify({'ok': True, 'url': report_url, 'filename': filename})
+
+
+# ── 深掘りリクエスト API ─────────────────────────────────────
+@app.route('/api/deepdive/request', methods=['GET'])
+@require_api_key
+def api_deepdive_get():
+    """深掘りリクエストの状態を確認する（deepdive-watcher用）"""
+    return jsonify(get_deepdive_request())
+
+
+@app.route('/api/deepdive/request', methods=['POST'])
+@require_api_key
+def api_deepdive_set():
+    """深掘りリクエストを作成する"""
+    data = request.get_json() or {}
+    user_id = data.get('user_id', '')
+    ok = set_deepdive_request(user_id)
+    return jsonify({'ok': ok})
+
+
+@app.route('/api/deepdive/clear', methods=['POST'])
+@require_api_key
+def api_deepdive_clear():
+    """深掘りリクエストをクリアする（処理完了後に呼ぶ）"""
+    ok = clear_deepdive_request()
+    return jsonify({'ok': ok})
 
 
 # ── 起動 ─────────────────────────────────────────────────────

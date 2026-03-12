@@ -15,6 +15,7 @@ from app.database import save_task, update_report, set_google_task_id
 from app.researcher import research, extract_urls
 from app.html_generator import generate_report
 from app.google_tasks import create_google_task
+from app.deepdive import set_deepdive_request
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,18 @@ def _process_event(event: dict):
     text = msg.get('text', '').strip()
 
     if not text:
+        return
+
+    # 「深掘り」コマンドの検知
+    if text.lower() in ('深掘り', 'deepdive', '深掘'):
+        ok = set_deepdive_request(user_id)
+        if ok:
+            _reply(reply_token,
+                   '🔍 深掘りリクエストを受付しました。\n\n'
+                   '数分以内にClaude Codeが起動して処理を開始します。\n'
+                   '完了したらLINEでお知らせします。')
+        else:
+            _reply(reply_token, '⚠️ 深掘りリクエストの受付に失敗しました。しばらく待ってから再度お試しください。')
         return
 
     # URLを抽出
