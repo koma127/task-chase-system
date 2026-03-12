@@ -78,6 +78,7 @@ def _process_event(event: dict):
 
     reply_token = event.get('replyToken')
     user_id = event.get('source', {}).get('userId', '')
+    logger.info(f'LINE user_id: {user_id}')
     text = msg.get('text', '').strip()
 
     if not text:
