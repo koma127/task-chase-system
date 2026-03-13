@@ -108,11 +108,11 @@ def _process_event(event: dict):
     research_result = research(text, url)
 
     # HTMLレポート生成
-    filename = generate_report(task_id=task_id, message=text, research_result=research_result)
+    filename, html = generate_report(task_id=task_id, message=text, research_result=research_result)
     report_url = f'{BASE_URL}/reports/{filename}'
 
-    # DBにレポートURLを保存
-    update_report(task_id, filename, report_url)
+    # DBにレポートURL＋HTML本文を保存（デプロイ後も消えない）
+    update_report(task_id, filename, report_url, html)
 
     # Google Tasksにも作成（設定されている場合のみ）
     google_task_id = create_google_task(

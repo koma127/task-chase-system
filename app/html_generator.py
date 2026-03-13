@@ -7,7 +7,8 @@ import os
 import re
 from datetime import datetime
 
-REPORTS_DIR = os.environ.get('REPORTS_DIR', 'reports')
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPORTS_DIR = os.environ.get('REPORTS_DIR', os.path.join(_ROOT_DIR, 'reports'))
 
 
 def _safe_filename(text: str, task_id: int) -> str:
@@ -336,4 +337,4 @@ def generate_report(task_id: int, message: str, research_result: dict = None) ->
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(html)
 
-    return filename
+    return filename, html

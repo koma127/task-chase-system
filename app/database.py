@@ -48,11 +48,18 @@ def init_db():
             is_working INTEGER NOT NULL DEFAULT 0,
             report_filename TEXT,
             report_url TEXT,
+            report_html TEXT,
             google_task_id TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
     ''')
+    # 既存DBへの report_html カラム追加（なければ追加する）
+    try:
+        conn.execute('ALTER TABLE tasks ADD COLUMN report_html TEXT')
+        conn.commit()
+    except Exception:
+        pass  # すでに存在する場合は無視
     conn.commit()
     conn.close()
 
@@ -98,16 +105,26 @@ def get_task_by_id(task_id: int) -> dict:
     return _row_to_dict(row)
 
 
-def update_report(task_id: int, report_filename: str, report_url: str):
-    """タスクにレポートのファイル名とURLをセットする"""
+def update_report(task_id: int, report_filename: str, report_url: str, report_html: str = None):
+    """タスクにレポートのファイル名・URL・HTML本文をセットする"""
     now = datetime.now().isoformat()
     conn = get_connection()
     conn.execute(
-        'UPDATE tasks SET report_filename=?, report_url=?, updated_at=? WHERE id=?',
-        (report_filename, report_url, now, task_id)
+        'UPDATE tasks SET report_filename=?, report_url=?, report_html=?, updated_at=? WHERE id=?',
+        (report_filename, report_url, report_html, now, task_id)
     )
     conn.commit()
     conn.close()
+
+
+def get_report_html(task_id: int) -> str:
+    """タスクのHTMLレポート本文を取得する"""
+    conn = get_connection()
+    row = conn.execute('SELECT report_html FROM tasks WHERE id=?', (task_id,)).fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return row['report_html']
 
 
 def update_task_status(task_id: int, status: str) -> dict:

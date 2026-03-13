@@ -13,7 +13,7 @@ load_dotenv()
 
 from app.database import (
     init_db, get_all_tasks, get_task_by_id,
-    update_report, update_task_status, advance_task_status,
+    update_report, get_report_html, update_task_status, advance_task_status,
     update_task, toggle_working, skip_task, reclassify_tasks,
 )
 from app.line_handler import handle_webhook, send_line_message
@@ -30,7 +30,9 @@ app = Flask(__name__)
 with app.app_context():
     init_db()
 
-REPORTS_DIR = os.environ.get('REPORTS_DIR', 'reports')
+# 絶対パスで解決（app/main.py の2つ上 = プロジェクトルート/reports）
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPORTS_DIR = os.environ.get('REPORTS_DIR', os.path.join(_ROOT_DIR, 'reports'))
 API_KEY = os.environ.get('API_KEY', '')
 BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
 
@@ -63,7 +65,16 @@ def webhook():
 # ── レポート配信 ──────────────────────────────────────────────
 @app.route('/reports/<path:filename>')
 def serve_report(filename):
-    """生成済みHTMLレポートをブラウザに配信する"""
+    """生成済みHTMLレポートをブラウザに配信する（DB優先、なければファイル）"""
+    # ファイル名から task_id を推測して DB から取得を試みる
+    tasks = get_all_tasks()
+    for task in tasks:
+        if task.get('report_filename') == filename:
+            html = get_report_html(task['id'])
+            if html:
+                return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+            break
+    # DB にない場合はファイルシステムから配信
     return send_from_directory(REPORTS_DIR, filename)
 
 
@@ -101,14 +112,14 @@ def api_task_upload(task_id):
         filename = f.filename or f'report_{task_id}.html'
         html_content = f.read().decode('utf-8')
 
-    # reports/ に保存
+    report_url = f'{BASE_URL}/reports/{filename}'
+    # DBに保存（デプロイ後も消えない）
+    update_report(task_id, filename, report_url, html_content)
+    # ファイルシステムにも保存（バックアップ）
     os.makedirs(REPORTS_DIR, exist_ok=True)
     filepath = os.path.join(REPORTS_DIR, filename)
     with open(filepath, 'w', encoding='utf-8') as fp:
         fp.write(html_content)
-
-    report_url = f'{BASE_URL}/reports/{filename}'
-    update_report(task_id, filename, report_url)
 
     return jsonify({'ok': True, 'report_url': report_url})
 
