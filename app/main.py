@@ -13,7 +13,8 @@ load_dotenv()
 
 from app.database import (
     init_db, get_all_tasks, get_task_by_id,
-    update_report, get_report_html, update_task_status, advance_task_status,
+    update_report, get_report_html, save_report, get_report_by_filename,
+    update_task_status, advance_task_status,
     update_task, toggle_working, skip_task, reclassify_tasks,
 )
 from app.line_handler import handle_webhook, send_line_message
@@ -65,8 +66,12 @@ def webhook():
 # ── レポート配信 ──────────────────────────────────────────────
 @app.route('/reports/<path:filename>')
 def serve_report(filename):
-    """生成済みHTMLレポートをブラウザに配信する（DB優先、なければファイル）"""
-    # ファイル名から task_id を推測して DB から取得を試みる
+    """生成済みHTMLレポートをブラウザに配信する（DBから取得）"""
+    # 1. 汎用reportsテーブルから検索
+    html = get_report_by_filename(filename)
+    if html:
+        return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+    # 2. タスクに紐付くレポートから検索
     tasks = get_all_tasks()
     for task in tasks:
         if task.get('report_filename') == filename:
@@ -74,8 +79,8 @@ def serve_report(filename):
             if html:
                 return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
             break
-    # DB にない場合はファイルシステムから配信
-    return send_from_directory(REPORTS_DIR, filename)
+    # 3. どこにもなければ404
+    abort(404)
 
 
 # ── deepdive クライアント向けAPI ─────────────────────────────
@@ -253,8 +258,6 @@ def api_reports_upload():
     リクエストボディ: multipart/form-data で "file" フィールド（ファイル名を保持）
     または JSON で {"html": "...", "filename": "xxx.html"}
     """
-    os.makedirs(REPORTS_DIR, exist_ok=True)
-
     if request.is_json:
         data = request.get_json()
         html_content = data.get('html', '')
@@ -266,9 +269,8 @@ def api_reports_upload():
         filename = f.filename or 'upload.html'
         html_content = f.read().decode('utf-8')
 
-    filepath = os.path.join(REPORTS_DIR, filename)
-    with open(filepath, 'w', encoding='utf-8') as fp:
-        fp.write(html_content)
+    # DBに保存（ファイルシステムに依存しない）
+    save_report(filename, html_content)
 
     report_url = f'{BASE_URL}/reports/{filename}'
     return jsonify({'ok': True, 'url': report_url, 'filename': filename})

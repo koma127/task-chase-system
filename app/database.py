@@ -60,6 +60,15 @@ def init_db():
         conn.commit()
     except Exception:
         pass  # すでに存在する場合は無視
+
+    # 汎用レポート保存テーブル（タスクに紐付かないHTMLも保存できる）
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS reports (
+            filename TEXT PRIMARY KEY,
+            html TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -115,6 +124,26 @@ def update_report(task_id: int, report_filename: str, report_url: str, report_ht
     )
     conn.commit()
     conn.close()
+
+
+def save_report(filename: str, html: str):
+    """汎用レポートをDBに保存する（タスクに紐付かないもの）"""
+    now = datetime.now().isoformat()
+    conn = get_connection()
+    conn.execute(
+        'INSERT OR REPLACE INTO reports (filename, html, created_at) VALUES (?, ?, ?)',
+        (filename, html, now)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_report_by_filename(filename: str) -> str:
+    """ファイル名でレポートHTMLを取得する（汎用テーブルから）"""
+    conn = get_connection()
+    row = conn.execute('SELECT html FROM reports WHERE filename=?', (filename,)).fetchone()
+    conn.close()
+    return row['html'] if row else None
 
 
 def get_report_html(task_id: int) -> str:
